@@ -251,11 +251,22 @@ const extractDetailedInfo = async () => {
 };
 
 const getBusinessCards = () => {
-  const cards = document.querySelectorAll('a.hfpxzc[href*="/maps/place/"], a[href*="!4m"][href*="!3m"]');
-  return Array.from(cards).filter(card => {
+  const selector1 = 'a.hfpxzc[href*="/maps/place/"]';
+  const selector2 = 'a[href*="!4m"][href*="!3m"]';
+  
+  const cards1 = document.querySelectorAll(selector1);
+  const cards2 = document.querySelectorAll(selector2);
+  
+  console.log(`🔍 Found ${cards1.length} cards with selector1, ${cards2.length} with selector2`);
+  
+  const allCards = document.querySelectorAll(`${selector1}, ${selector2}`);
+  const filteredCards = Array.from(allCards).filter(card => {
     const href = card.href || '';
     return href.includes('/maps/place/') || (href.includes('!4m') && href.includes('!3m'));
   });
+  
+  console.log(`🎯 Total filtered cards: ${filteredCards.length}`);
+  return filteredCards;
 };
 
 // ⚡ NEW: Parallel scraping with batch processing
@@ -327,18 +338,33 @@ const extractBusinessesParallel = async (maxResults, batchSize = 3) => {
 // Standard sequential extraction (original method)
 const extractBusinessesSequential = async (maxResults) => {
   const businesses = [];
-  const businessLinks = getBusinessCards();
+  
+  // Re-query business cards to get fresh references
+  let businessLinks = getBusinessCards();
   
   console.log(`🎯 Found ${businessLinks.length} businesses. Using SEQUENTIAL mode`);
   sendStatus(`Found ${businessLinks.length} businesses. Starting extraction...`);
   
+  if (businessLinks.length === 0) {
+    console.error('❌ No business cards found! Check selectors.');
+    return businesses;
+  }
+  
   const limit = maxResults > 0 ? Math.min(maxResults, businessLinks.length) : businessLinks.length;
+  console.log(`📊 Will extract ${limit} businesses (maxResults: ${maxResults}, available: ${businessLinks.length})`);
   
   for (let i = 0; i < limit; i++) {
     try {
+      // Re-query cards each iteration to get fresh references
       const cards = getBusinessCards();
+      
+      if (!cards || cards.length === 0) {
+        console.error('❌ No cards found in iteration', i);
+        break;
+      }
+      
       if (!cards[i]) {
-        console.log('❌ No more cards found at index', i);
+        console.log(`❌ No more cards found at index ${i} (total cards: ${cards.length})`);
         break;
       }
       
@@ -348,8 +374,12 @@ const extractBusinessesSequential = async (maxResults) => {
       console.log(`📍 [${i + 1}/${limit}] Scraping: ${businessName}`);
       
       // Scroll card into view before clicking
-      cards[i].scrollIntoView({ behavior: 'smooth', block: 'center' });
-      await delay(300);
+      try {
+        cards[i].scrollIntoView({ behavior: 'smooth', block: 'center' });
+        await delay(300);
+      } catch (scrollError) {
+        console.warn('⚠️ Scroll error:', scrollError);
+      }
       
       // Click the business card
       await clickAndWait(cards[i], 2500);
@@ -373,6 +403,7 @@ const extractBusinessesSequential = async (maxResults) => {
     }
   }
   
+  console.log(`🎉 Extraction complete! Got ${businesses.length} businesses`);
   return businesses;
 };
 
@@ -430,6 +461,10 @@ const scrollToLoadMore = async (maxResults, scrollDelay) => {
 
   console.log(`✅ Loaded ${previousCount} businesses. Starting extraction...`);
   sendStatus(`Loaded ${previousCount} results. Extracting details...`);
+  
+  // Wait for DOM to stabilize after scrolling
+  await delay(1000);
+  console.log('🔄 DOM stabilization complete, starting extraction...');
   
   // Use sequential extraction for now (can switch to parallel if needed)
   return extractBusinessesSequential(maxResults);
