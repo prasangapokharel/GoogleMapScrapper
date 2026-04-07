@@ -41,7 +41,7 @@ const sendStatus = (message) => {
   }
 };
 
-const clickAndWait = async (element, waitTime = 1500) => {
+const clickAndWait = async (element, waitTime = 1000) => {
   if (element) {
     element.click();
     await delay(waitTime);
@@ -52,7 +52,7 @@ const clickAndWait = async (element, waitTime = 1500) => {
 
 // ⚡ OPTIMIZED: Faster extraction with improved selectors
 const extractDetailedInfo = async () => {
-  await delay(1800); // Reduced from 2000ms
+  await delay(1200); // ⚡ ULTRA-FAST: 1800ms → 1200ms (33% faster)
   
   const business = {};
   
@@ -247,7 +247,7 @@ const extractDetailedInfo = async () => {
         cancelable: true
       });
       document.dispatchEvent(escapeEvent);
-      await delay(800); // Wait for panel to close
+      await delay(500); // ⚡ ULTRA-FAST: 800ms → 500ms (37% faster)
     } else {
       console.warn('⚠️ Close button not found, trying ESC key fallback...');
       // Fallback: Try ESC key even without finding close button
@@ -260,7 +260,7 @@ const extractDetailedInfo = async () => {
         cancelable: true
       });
       document.dispatchEvent(escapeEvent);
-      await delay(800);
+      await delay(500);
     }
     
     console.log('✅ Scraped:', business.name);
@@ -396,28 +396,28 @@ const extractBusinessesSequential = async (maxResults) => {
       console.log(`📍 [${i + 1}/${limit}] Scraping: ${businessName}`);
       
       // Scroll card into view before clicking
-      try {
-        cards[i].scrollIntoView({ behavior: 'smooth', block: 'center' });
-        await delay(300);
-      } catch (scrollError) {
-        console.warn('⚠️ Scroll error:', scrollError);
-      }
-      
-      // Click the business card
-      await clickAndWait(cards[i], 2500);
-      
-      // Extract the data
-      const businessData = await extractDetailedInfo();
-      
-      if (businessData && businessData.name) {
-        businesses.push(businessData);
-        console.log(`✅ [${i + 1}/${limit}] Done: ${businessData.name}`);
-      } else {
-        console.warn(`⚠️ Skipped business ${i + 1} - no valid data`);
-      }
-      
-      // Delay before next iteration
-      await delay(600);
+       try {
+         cards[i].scrollIntoView({ behavior: 'smooth', block: 'center' });
+         await delay(150); // ⚡ ULTRA-FAST: 300ms → 150ms (50% faster)
+       } catch (scrollError) {
+         console.warn('⚠️ Scroll error:', scrollError);
+       }
+       
+       // Click the business card
+       await clickAndWait(cards[i], 1500); // ⚡ ULTRA-FAST: 2500ms → 1500ms (40% faster)
+       
+       // Extract the data
+       const businessData = await extractDetailedInfo();
+       
+       if (businessData && businessData.name) {
+         businesses.push(businessData);
+         console.log(`✅ [${i + 1}/${limit}] Done: ${businessData.name}`);
+       } else {
+         console.warn(`⚠️ Skipped business ${i + 1} - no valid data`);
+       }
+       
+       // Delay before next iteration
+       await delay(300); // ⚡ ULTRA-FAST: 600ms → 300ms (50% faster)
       
     } catch (error) {
       console.error(`❌ Error on business ${i + 1}:`, error);
@@ -485,7 +485,7 @@ const scrollToLoadMore = async (maxResults, scrollDelay) => {
   sendStatus(`Loaded ${previousCount} results. Extracting details...`);
   
   // Wait for DOM to stabilize after scrolling
-  await delay(1000);
+  await delay(500); // ⚡ ULTRA-FAST: 1000ms → 500ms (50% faster)
   console.log('🔄 DOM stabilization complete, starting extraction...');
   
   // Use sequential extraction for now (can switch to parallel if needed)
