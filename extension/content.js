@@ -234,11 +234,33 @@ const extractDetailedInfo = async () => {
                        });
     
     if (closeButton) {
-      console.log('🔙 Closing detail panel...');
-      closeButton.click();
+      console.log('🔙 Closing detail panel with ESC key...');
+      // ⚠️ CRITICAL FIX: Use ESC key instead of button click to avoid browser navigation
+      // Clicking the back button triggers history.back() which redirects away from search results
+      // Pressing ESC closes the panel WITHOUT navigating browser history
+      const escapeEvent = new KeyboardEvent('keydown', {
+        key: 'Escape',
+        code: 'Escape',
+        keyCode: 27,
+        which: 27,
+        bubbles: true,
+        cancelable: true
+      });
+      document.dispatchEvent(escapeEvent);
       await delay(800); // Wait for panel to close
     } else {
-      console.warn('⚠️ Close button not found, may affect next scraping');
+      console.warn('⚠️ Close button not found, trying ESC key fallback...');
+      // Fallback: Try ESC key even without finding close button
+      const escapeEvent = new KeyboardEvent('keydown', {
+        key: 'Escape',
+        code: 'Escape',
+        keyCode: 27,
+        which: 27,
+        bubbles: true,
+        cancelable: true
+      });
+      document.dispatchEvent(escapeEvent);
+      await delay(800);
     }
     
     console.log('✅ Scraped:', business.name);
