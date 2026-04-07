@@ -1,30 +1,28 @@
 const scrapeBtn = document.getElementById('scrapeBtn');
 const exportBtn = document.getElementById('exportBtn');
-const countBusinesses = document.getElementById('countBusinesses');
-const lastScraped = document.getElementById('lastScraped');
-const statusBadge = document.getElementById('statusBadge');
-const statusText = document.getElementById('statusText');
+const totalStat = document.getElementById('totalStat');
+const avgRating = document.getElementById('avgRating');
+const statusStat = document.getElementById('statusStat');
 const messageBox = document.getElementById('messageBox');
 const maxResultsInput = document.getElementById('maxResults');
 const autoScrollDelayInput = document.getElementById('autoScrollDelay');
 const progressSection = document.getElementById('progressSection');
-const currentProgress = document.getElementById('currentProgress');
-const totalProgress = document.getElementById('totalProgress');
-const progressFill = document.getElementById('progressFill');
+const progressText = document.getElementById('progressText');
+const progressBar = document.getElementById('progressBar');
 const currentBusiness = document.getElementById('currentBusiness');
 
 let scrapedBusinesses = [];
 let port = null;
 
-const setStatus = (status, text) => {
-  statusBadge.className = `status-badge status-${status}`;
+const setStatus = (status) => {
   const statusMap = {
-    idle: 'Ready',
-    scraping: 'Scraping...',
-    done: 'Complete',
-    error: 'Error'
+    idle: 'READY',
+    scraping: 'ACTIVE',
+    done: 'DONE',
+    error: 'ERROR'
   };
-  statusText.textContent = text || statusMap[status] || status;
+  statusStat.textContent = statusMap[status] || status.toUpperCase();
+  statusStat.style.fontSize = '12px';
 };
 
 const showMessage = (message, type = 'success') => {
@@ -36,19 +34,25 @@ const showMessage = (message, type = 'success') => {
 };
 
 const updateStats = () => {
-  countBusinesses.textContent = scrapedBusinesses.length;
-  const now = new Date();
-  lastScraped.textContent = now.toLocaleTimeString();
+  totalStat.textContent = scrapedBusinesses.length;
+  
+  // Calculate average rating
+  const ratings = scrapedBusinesses.filter(b => b.rating).map(b => parseFloat(b.rating));
+  if (ratings.length > 0) {
+    const avg = ratings.reduce((a, b) => a + b, 0) / ratings.length;
+    avgRating.textContent = avg.toFixed(1);
+  } else {
+    avgRating.textContent = '0.0';
+  }
 };
 
 const updateProgress = (current, total, businessName = '') => {
-  currentProgress.textContent = current;
-  totalProgress.textContent = total;
+  progressText.textContent = `${current}/${total}`;
   const percentage = total > 0 ? (current / total) * 100 : 0;
-  progressFill.style.width = `${percentage}%`;
+  progressBar.style.width = `${percentage}%`;
   
   if (businessName) {
-    currentBusiness.textContent = `📍 ${businessName}`;
+    currentBusiness.textContent = `> ${businessName}`;
   }
 };
 
@@ -58,7 +62,7 @@ const downloadCSV = () => {
     return;
   }
 
-  const headers = ['name', 'phone', 'email', 'website', 'google_maps_url', 'address', 'rating', 'category'];
+  const headers = ['name', 'phone', 'email', 'website', 'address', 'category', 'rating', 'reviews_count', 'price_range', 'hours', 'open_now', 'plus_code', 'latitude', 'longitude', 'google_maps_url'];
   const csvContent = [
     headers.join(','),
     ...scrapedBusinesses.map(business =>
@@ -84,10 +88,10 @@ const downloadCSV = () => {
 };
 
 const scrapeBusinesses = async () => {
-  setStatus('scraping', 'Loading...');
+  setStatus('scraping');
   scrapeBtn.disabled = true;
-  progressSection.classList.add('show');
-  showMessage('🚀 Starting powerful scraper...', 'success');
+  progressSection.classList.add('active');
+  showMessage('⚡ Scraper initiated...', 'success');
 
   try {
     const maxResults = parseInt(maxResultsInput.value) || 0;
@@ -96,7 +100,7 @@ const scrapeBusinesses = async () => {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
 
     if (!tab.url || !tab.url.includes('google.com/maps')) {
-      throw new Error('❌ Please open Google Maps with search results first');
+      throw new Error('ERROR: Open Google Maps first');
     }
 
     port = chrome.tabs.connect(tab.id, { name: 'scraper' });
@@ -104,9 +108,9 @@ const scrapeBusinesses = async () => {
     port.onMessage.addListener((msg) => {
       if (msg.type === 'progress') {
         updateProgress(msg.current, msg.total, msg.businessName);
-        setStatus('scraping', `Scraping ${msg.current}/${msg.total}`);
+        setStatus('scraping');
       } else if (msg.type === 'status') {
-        currentBusiness.textContent = msg.message;
+        currentBusiness.textContent = `> ${msg.message}`;
       }
     });
 
@@ -122,14 +126,14 @@ const scrapeBusinesses = async () => {
 
     scrapedBusinesses = result.businesses || [];
     updateStats();
-    setStatus('done', 'Complete!');
+    setStatus('done');
     exportBtn.disabled = false;
-    progressSection.classList.remove('show');
-    showMessage(`🎉 Successfully scraped ${scrapedBusinesses.length} businesses with complete details!`);
+    progressSection.classList.remove('active');
+    showMessage(`✅ COMPLETE! Scraped ${scrapedBusinesses.length} businesses`, 'success');
   } catch (error) {
-    setStatus('error', 'Failed');
-    progressSection.classList.remove('show');
-    showMessage(`❌ Error: ${error.message}`, 'error');
+    setStatus('error');
+    progressSection.classList.remove('active');
+    showMessage(`ERROR: ${error.message}`, 'error');
     console.error('Scraping error:', error);
   } finally {
     scrapeBtn.disabled = false;
@@ -155,7 +159,7 @@ try {
       scrapedBusinesses = data.scrapedBusinesses;
       updateStats();
       exportBtn.disabled = false;
-      showMessage(`✨ Loaded ${scrapedBusinesses.length} previously scraped businesses`, 'success');
+      showMessage(`⚡ Loaded ${scrapedBusinesses.length} cached records`, 'info');
     }
   });
 } catch (error) {

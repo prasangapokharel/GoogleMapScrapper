@@ -50,12 +50,14 @@ const clickAndWait = async (element, waitTime = 1500) => {
   return false;
 };
 
+// ⚡ OPTIMIZED: Faster extraction with improved selectors
 const extractDetailedInfo = async () => {
-  await delay(2000);
+  await delay(1800); // Reduced from 2000ms
   
   const business = {};
   
   try {
+    // Extract business name
     const nameElement = document.querySelector('h1.fontHeadlineSmall, h1.DUwDvf, h1.qBF1Pd, h1.fontDisplayLarge');
     business.name = nameElement?.textContent?.trim() || '';
     
@@ -64,16 +66,18 @@ const extractDetailedInfo = async () => {
       return null;
     }
     
+    // Extract rating and reviews
     const ratingContainer = document.querySelector('[role="img"][aria-label*="star"], [aria-label*="स्टार"], .F7nice');
     if (ratingContainer) {
       const ariaLabel = ratingContainer.getAttribute('aria-label') || '';
       const ratingMatch = ariaLabel.match(/(\d+\.?\d*)/);
       business.rating = ratingMatch ? parseFloat(ratingMatch[1]) : '';
       
-      const reviewMatch = ariaLabel.match(/(\d+)\s*(reviews?|समीक्षा)/i);
-      business.reviews_count = reviewMatch ? parseInt(reviewMatch[1]) : '';
+      const reviewMatch = ariaLabel.match(/(\d+[\.,]?\d*)\s*(reviews?|समीक्षा)/i);
+      business.reviews_count = reviewMatch ? reviewMatch[1].replace(',', '') : '';
     }
     
+    // Extract category
     const categoryButton = document.querySelector('button[jsaction*="category"]');
     business.category = categoryButton?.textContent?.trim() || '';
     
@@ -82,87 +86,134 @@ const extractDetailedInfo = async () => {
       business.category = categorySpan?.textContent?.trim() || '';
     }
     
-    const buttons = Array.from(document.querySelectorAll('button[data-item-id], button[data-tooltip], button[aria-label]'));
+    // ⚡ OPTIMIZED: Get all buttons at once
+    const allButtons = Array.from(document.querySelectorAll('button[data-item-id], a[data-item-id], button[aria-label]'));
+    const allLinks = Array.from(document.querySelectorAll('a[data-item-id], a[href^="http"]'));
     
-    const phoneButton = buttons.find(btn => {
+    // ⚡ IMPROVED: Better website extraction using the provided selectors
+    const websiteLink = document.querySelector('a[data-item-id="authority"]') || 
+                       allLinks.find(a => a.getAttribute('aria-label')?.includes('Website') || 
+                                          a.getAttribute('aria-label')?.includes('वेबसाइट'));
+    
+    if (websiteLink) {
+      business.website = websiteLink.href || '';
+      
+      // Extract clean website text from div.Io6YTe
+      const websiteText = websiteLink.querySelector('.Io6YTe.fontBodyMedium.kR99db.fdkmkc');
+      if (websiteText && !business.website) {
+        business.website = 'https://' + websiteText.textContent.trim();
+      }
+    }
+    
+    // ⚡ IMPROVED: Better phone extraction
+    const phoneButton = allButtons.find(btn => {
       const dataId = btn.getAttribute('data-item-id') || '';
+      return dataId.includes('phone:tel:');
+    }) || allButtons.find(btn => {
       const ariaLabel = btn.getAttribute('aria-label') || '';
-      return dataId.includes('phone') || 
-             ariaLabel.includes('Phone') || 
-             ariaLabel.includes('फोन') ||
-             btn.textContent.match(/\d{3}[-.\s]?\d{3}/);
+      return ariaLabel.includes('Phone') || ariaLabel.includes('फोन');
     });
     
     if (phoneButton) {
-      await clickAndWait(phoneButton, 800);
+      // Try to extract from data-item-id first (most reliable)
+      const dataId = phoneButton.getAttribute('data-item-id') || '';
+      if (dataId.includes('phone:tel:')) {
+        business.phone = dataId.replace('phone:tel:', '').trim();
+      }
       
-      const phoneText = phoneButton.textContent?.trim() || '';
-      const phoneMatch = phoneText.match(/[\d\s\-\+\(\)]+/);
-      business.phone = phoneMatch ? phoneMatch[0].trim() : '';
-      
-      const copyablePhone = document.querySelector('[data-item-id="phone"] [data-tooltip], [aria-label*="Copy phone"]');
-      if (copyablePhone && !business.phone) {
-        business.phone = copyablePhone.getAttribute('aria-label')?.replace(/Copy phone number:?/i, '').trim() || '';
+      // Fallback: extract from button text using improved selector
+      if (!business.phone) {
+        const phoneText = phoneButton.querySelector('.Io6YTe.fontBodyMedium.kR99db.fdkmkc');
+        if (phoneText) {
+          business.phone = phoneText.textContent.trim();
+        } else {
+          const phoneMatch = phoneButton.textContent.match(/[\d\s\-\+\(\)]+/);
+          business.phone = phoneMatch ? phoneMatch[0].trim() : '';
+        }
       }
     }
     
-    const websiteButton = buttons.find(btn => {
+    // ⚡ IMPROVED: Better address extraction
+    const addressButton = allButtons.find(btn => {
       const dataId = btn.getAttribute('data-item-id') || '';
-      const ariaLabel = btn.getAttribute('aria-label') || '';
-      return dataId === 'authority' || 
-             ariaLabel.includes('Website') || 
-             ariaLabel.includes('वेबसाइट');
-    });
-    
-    if (websiteButton) {
-      await clickAndWait(websiteButton, 500);
-      const websiteLink = document.querySelector('a[data-item-id="authority"], a[href^="http"]:not([href*="google.com"])');
-      business.website = websiteLink?.href || '';
-    }
-    
-    const addressButton = buttons.find(btn => {
-      const dataId = btn.getAttribute('data-item-id') || '';
-      const ariaLabel = btn.getAttribute('aria-label') || '';
-      return dataId.includes('address') || 
-             ariaLabel.includes('Address') || 
-             ariaLabel.includes('ठेगाना');
+      return dataId === 'address';
     });
     
     if (addressButton) {
+      // Try to get from aria-label first
       const ariaLabel = addressButton.getAttribute('aria-label') || '';
       business.address = ariaLabel.replace(/Address:|ठेगाना:/gi, '').trim();
       
-      if (!business.address) {
-        business.address = addressButton.textContent?.trim() || '';
+      // Fallback: use improved selector
+      if (!business.address || business.address.length < 5) {
+        const addressText = addressButton.querySelector('.Io6YTe.fontBodyMedium.kR99db.fdkmkc');
+        if (addressText) {
+          business.address = addressText.textContent.trim();
+        } else {
+          business.address = addressButton.textContent?.trim() || '';
+        }
       }
     }
     
+    // ⚡ IMPROVED: Email extraction (multiple methods)
     const emailLink = document.querySelector('a[href^="mailto:"]');
-    business.email = emailLink?.href?.replace('mailto:', '') || '';
-    
-    const priceElement = document.querySelector('[aria-label*="Price"], [aria-label*="रू"]');
-    if (priceElement) {
-      business.price_range = priceElement.getAttribute('aria-label') || priceElement.textContent?.trim() || '';
+    if (emailLink) {
+      business.email = emailLink.href.replace('mailto:', '').trim();
+    } else {
+      // Try to find email in text content
+      const emailRegex = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/;
+      const bodyText = document.body.textContent;
+      const emailMatch = bodyText.match(emailRegex);
+      if (emailMatch) {
+        business.email = emailMatch[0];
+      }
     }
     
-    const hoursButton = buttons.find(btn => {
+    // Extract price range
+    const priceElement = document.querySelector('.fontBodyMedium:has(.sBBhZ), [aria-label*="per person"]');
+    if (priceElement) {
+      const priceText = priceElement.textContent.trim();
+      business.price_range = priceText.split('\n')[0] || priceText;
+    }
+    
+    // ⚡ IMPROVED: Better hours extraction
+    const hoursButton = allButtons.find(btn => {
+      const dataId = btn.getAttribute('data-item-id') || '';
+      return dataId === 'oh';
+    }) || allButtons.find(btn => {
       const ariaLabel = btn.getAttribute('aria-label') || '';
-      return ariaLabel.includes('Hours') || ariaLabel.includes('घन्टा');
+      return ariaLabel.includes('Open') || ariaLabel.includes('Closed') || ariaLabel.includes('Hours');
     });
     
     if (hoursButton) {
-      const hoursText = hoursButton.textContent?.trim() || '';
-      business.hours = hoursText;
+      const hoursText = hoursButton.querySelector('.Io6YTe.fontBodyMedium.kR99db.fdkmkc');
+      if (hoursText) {
+        business.hours = hoursText.textContent.trim();
+      } else {
+        business.hours = hoursButton.textContent?.trim() || '';
+      }
       
-      const openNow = hoursText.match(/(Open|खुला|Closed|बन्द)/i);
-      business.open_now = openNow ? openNow[0] : '';
+      // Determine open/closed status
+      const openMatch = business.hours.match(/(Open|खुला|Closed|बन्द)/i);
+      business.open_now = openMatch ? openMatch[0] : '';
     }
     
-    const plusCodeElement = document.querySelector('[data-item-id*="oloc"], .QSFF4b');
-    if (plusCodeElement) {
-      business.plus_code = plusCodeElement.textContent?.trim() || '';
+    // Extract Plus Code
+    const plusCodeButton = allButtons.find(btn => {
+      const dataId = btn.getAttribute('data-item-id') || '';
+      return dataId === 'oloc';
+    });
+    
+    if (plusCodeButton) {
+      const plusCodeText = plusCodeButton.querySelector('.Io6YTe.fontBodyMedium.kR99db.fdkmkc');
+      if (plusCodeText) {
+        business.plus_code = plusCodeText.textContent.trim();
+      } else {
+        business.plus_code = plusCodeButton.textContent?.trim() || '';
+      }
     }
     
+    // Extract URL and coordinates
     business.google_maps_url = window.location.href;
     
     const coordinates = window.location.href.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/);
@@ -171,19 +222,17 @@ const extractDetailedInfo = async () => {
       business.longitude = coordinates[2];
     }
     
-    const closeButtons = document.querySelectorAll('button[aria-label*="Back"], button[aria-label*="फर्क"], button[aria-label*="Close"], button.VfPpkd-icon-LgbsSe');
-    for (const btn of closeButtons) {
-      const ariaLabel = btn.getAttribute('aria-label') || '';
-      if (ariaLabel.toLowerCase().includes('back') || ariaLabel.includes('फर्क')) {
-        await clickAndWait(btn, 1000);
-        break;
-      }
+    // ⚡ OPTIMIZED: Faster close operation
+    const closeButton = document.querySelector('button[aria-label*="Back"]') ||
+                       document.querySelector('button[aria-label*="Close"]');
+    if (closeButton) {
+      await clickAndWait(closeButton, 600); // Reduced from 1000ms
     }
     
-    console.log('Scraped business:', business);
+    console.log('✅ Scraped:', business.name);
     
   } catch (error) {
-    console.error('Error extracting detailed info:', error);
+    console.error('❌ Error extracting:', error);
   }
   
   return business;
@@ -197,44 +246,104 @@ const getBusinessCards = () => {
   });
 };
 
-const extractBusinessesFromDOM = async (maxResults) => {
+// ⚡ NEW: Parallel scraping with batch processing
+const extractBusinessesParallel = async (maxResults, batchSize = 3) => {
   const businesses = [];
   const businessLinks = getBusinessCards();
   
-  console.log(`🎯 Found ${businessLinks.length} business cards to scrape`);
-  sendStatus(`Found ${businessLinks.length} businesses. Starting detailed extraction...`);
+  console.log(`🚀 Found ${businessLinks.length} businesses. Using PARALLEL mode with batch size ${batchSize}`);
+  sendStatus(`Found ${businessLinks.length} businesses. Starting PARALLEL extraction...`);
+  
+  const limit = maxResults > 0 ? Math.min(maxResults, businessLinks.length) : businessLinks.length;
+  
+  // Process in batches for optimal performance
+  for (let i = 0; i < limit; i += batchSize) {
+    const batch = [];
+    const batchEnd = Math.min(i + batchSize, limit);
+    
+    for (let j = i; j < batchEnd; j++) {
+      const index = j;
+      
+      // Create async task for each business
+      const task = (async () => {
+        try {
+          const cards = getBusinessCards();
+          if (!cards[index]) return null;
+          
+          const businessName = cards[index].getAttribute('aria-label') || `Business ${index + 1}`;
+          sendProgress(index + 1, limit, businessName);
+          
+          console.log(`📍 [${index + 1}/${limit}] Scraping: ${businessName}`);
+          
+          await clickAndWait(cards[index], 2000);
+          const businessData = await extractDetailedInfo();
+          
+          if (businessData && businessData.name) {
+            console.log(`✅ [${index + 1}/${limit}] Done: ${businessData.name}`);
+            return businessData;
+          }
+          
+          return null;
+        } catch (error) {
+          console.error(`❌ Error on business ${index + 1}:`, error);
+          return null;
+        }
+      })();
+      
+      batch.push(task);
+    }
+    
+    // Wait for current batch to complete
+    const results = await Promise.all(batch);
+    
+    // Add valid results
+    results.forEach(result => {
+      if (result) businesses.push(result);
+    });
+    
+    console.log(`📊 Batch complete. Total scraped: ${businesses.length}/${limit}`);
+    
+    // Small delay between batches
+    if (batchEnd < limit) {
+      await delay(500);
+    }
+  }
+  
+  return businesses;
+};
+
+// Standard sequential extraction (original method)
+const extractBusinessesSequential = async (maxResults) => {
+  const businesses = [];
+  const businessLinks = getBusinessCards();
+  
+  console.log(`🎯 Found ${businessLinks.length} businesses. Using SEQUENTIAL mode`);
+  sendStatus(`Found ${businessLinks.length} businesses. Starting extraction...`);
   
   const limit = maxResults > 0 ? Math.min(maxResults, businessLinks.length) : businessLinks.length;
   
   for (let i = 0; i < limit; i++) {
     try {
-      console.log(`📍 Scraping business ${i + 1}/${limit}`);
-      
       const cards = getBusinessCards();
-      if (!cards[i]) {
-        console.log('❌ No more cards found, breaking');
-        break;
-      }
+      if (!cards[i]) break;
       
       const businessName = cards[i].getAttribute('aria-label') || `Business ${i + 1}`;
       sendProgress(i + 1, limit, businessName);
       
-      await clickAndWait(cards[i], 2500);
+      console.log(`📍 [${i + 1}/${limit}] Scraping: ${businessName}`);
       
+      await clickAndWait(cards[i], 2000);
       const businessData = await extractDetailedInfo();
       
       if (businessData && businessData.name) {
         businesses.push(businessData);
-        console.log(`✅ Scraped: ${businessData.name} (${businesses.length}/${limit})`);
-      } else {
-        console.warn(`⚠️ Skipped business ${i + 1} - no valid data`);
+        console.log(`✅ [${i + 1}/${limit}] Done: ${businessData.name}`);
       }
       
-      await delay(800);
+      await delay(600); // Reduced from 800ms
       
     } catch (error) {
-      console.error(`❌ Error scraping business ${i + 1}:`, error);
-      sendStatus(`Error on business ${i + 1}, continuing...`);
+      console.error(`❌ Error on business ${i + 1}:`, error);
     }
   }
   
@@ -250,33 +359,32 @@ const scrollToLoadMore = async (maxResults, scrollDelay) => {
   if (!sidebar) {
     console.log('⚠️ Sidebar not found, extracting current businesses');
     sendStatus('Sidebar not found. Extracting visible results...');
-    return extractBusinessesFromDOM(maxResults);
+    return extractBusinessesSequential(maxResults);
   }
 
-  console.log('🔄 Starting to scroll and load more results...');
+  console.log('🔄 Auto-scrolling to load all results...');
   sendStatus('Loading all results. Please wait...');
   
   let previousCount = 0;
   let noChangeCount = 0;
-  const maxNoChanges = 6;
+  const maxNoChanges = 5; // Reduced from 6
 
   while (true) {
     const currentCards = getBusinessCards();
     const currentCount = currentCards.length;
 
-    console.log(`📊 Loaded ${currentCount} business cards`);
+    console.log(`📊 Loaded ${currentCount} businesses`);
     sendStatus(`Loaded ${currentCount} businesses...`);
 
     if (maxResults > 0 && currentCount >= maxResults) {
-      console.log(`🎯 Reached max results limit: ${maxResults}`);
+      console.log(`🎯 Reached max: ${maxResults}`);
       break;
     }
 
     if (currentCount === previousCount) {
       noChangeCount++;
-      console.log(`⏳ No new results (${noChangeCount}/${maxNoChanges})`);
       if (noChangeCount >= maxNoChanges) {
-        console.log('✅ No more results to load');
+        console.log('✅ All results loaded');
         break;
       }
     } else {
@@ -289,37 +397,39 @@ const scrollToLoadMore = async (maxResults, scrollDelay) => {
       sidebar.scrollBy(0, 1500);
       await delay(scrollDelay);
     } catch (error) {
-      console.error('Error scrolling:', error);
+      console.error('❌ Scroll error:', error);
       break;
     }
   }
 
-  console.log(`✅ Finished loading. Starting detailed extraction of ${previousCount} businesses`);
+  console.log(`✅ Loaded ${previousCount} businesses. Starting extraction...`);
   sendStatus(`Loaded ${previousCount} results. Extracting details...`);
   
-  return extractBusinessesFromDOM(maxResults);
+  // Use sequential extraction for now (can switch to parallel if needed)
+  return extractBusinessesSequential(maxResults);
 };
 
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === 'scrapeBusinesses') {
     const maxResults = request.maxResults || 0;
     const autoScrollDelay = request.autoScrollDelay || 2000;
+    const useParallel = request.useParallel || false; // New option
 
-    console.log('🚀 Starting scraper with settings:', { maxResults, autoScrollDelay });
+    console.log('🚀 Scraper starting:', { maxResults, autoScrollDelay, useParallel });
 
     scrollToLoadMore(maxResults, autoScrollDelay)
       .then((businesses) => {
-        console.log(`🎉 Scraping complete! Total: ${businesses.length} businesses`);
+        console.log(`🎉 COMPLETE! Scraped ${businesses.length} businesses`);
         
         // Save to chrome.storage with error handling
         try {
           chrome.storage.local.set({ scrapedBusinesses: businesses }, () => {
             if (chrome.runtime.lastError) {
-              console.warn('Failed to save to chrome.storage:', chrome.runtime.lastError);
+              console.warn('Storage error:', chrome.runtime.lastError);
             }
           });
         } catch (error) {
-          console.warn('Chrome storage error:', error.message);
+          console.warn('Storage error:', error.message);
         }
         
         sendResponse({ businesses, success: true });
@@ -333,4 +443,4 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   }
 });
 
-console.log('✨ Google Maps Scraper Pro - Content script loaded and ready!');
+console.log('⚡ Google Maps Scraper v1.1 - OPTIMIZED & READY!');
