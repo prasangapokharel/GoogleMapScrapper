@@ -103,6 +103,20 @@ const scrapeBusinesses = async () => {
       throw new Error('ERROR: Open Google Maps first');
     }
 
+    // Ensure content script is loaded
+    try {
+      await chrome.scripting.executeScript({
+        target: { tabId: tab.id },
+        files: ['content.js']
+      });
+      console.log('✅ Content script injected');
+    } catch (injectError) {
+      console.log('Content script already loaded or injection failed:', injectError.message);
+    }
+
+    // Small delay to ensure script is ready
+    await new Promise(resolve => setTimeout(resolve, 500));
+
     port = chrome.tabs.connect(tab.id, { name: 'scraper' });
     
     port.onMessage.addListener((msg) => {
@@ -148,20 +162,24 @@ scrapeBtn.addEventListener('click', scrapeBusinesses);
 exportBtn.addEventListener('click', downloadCSV);
 
 // Load previously scraped businesses from storage on startup
-try {
-  chrome.storage.local.get('scrapedBusinesses', (data) => {
-    if (chrome.runtime.lastError) {
-      console.warn('Failed to load from chrome.storage:', chrome.runtime.lastError);
-      return;
-    }
-    
-    if (data.scrapedBusinesses && data.scrapedBusinesses.length > 0) {
-      scrapedBusinesses = data.scrapedBusinesses;
-      updateStats();
-      exportBtn.disabled = false;
-      showMessage(`⚡ Loaded ${scrapedBusinesses.length} cached records`, 'info');
-    }
-  });
-} catch (error) {
-  console.warn('Chrome storage error:', error.message);
+if (chrome && chrome.storage && chrome.storage.local) {
+  try {
+    chrome.storage.local.get('scrapedBusinesses', (data) => {
+      if (chrome.runtime.lastError) {
+        console.warn('Failed to load from chrome.storage:', chrome.runtime.lastError);
+        return;
+      }
+      
+      if (data.scrapedBusinesses && data.scrapedBusinesses.length > 0) {
+        scrapedBusinesses = data.scrapedBusinesses;
+        updateStats();
+        exportBtn.disabled = false;
+        showMessage(`⚡ Loaded ${scrapedBusinesses.length} cached records`, 'info');
+      }
+    });
+  } catch (error) {
+    console.warn('Chrome storage error:', error.message);
+  }
+} else {
+  console.warn('Chrome storage API not available');
 }
