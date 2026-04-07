@@ -1,0 +1,36 @@
+🥷 NinjaScrapi - The Google Maps Scraper You've Been Waiting For! 🚀
+
+Introducing NinjaScrapi v1.1.0 - The ULTRA-OPTIMIZED Chrome extension that scrapes Google Maps like a ninja! ⚡
+
+✨ What You Get:
+✅ 40% FASTER - Blazing speeds with optimized scraping
+✅ 15+ Data Fields - Name, phone, email, website, address, ratings, hours, GPS + more
+✅ Terminal UI - Retro hacker aesthetic with green scanlines & pulsing animations
+✅ NO Backend Required - Works 100% standalone as a Chrome extension
+✅ CSV Export - Download all your data in seconds
+✅ Real-time Progress - Live extraction counter & status updates
+
+🎯 Perfect For:
+🏪 Business Research & Market Analysis
+📊 Lead Generation & Sales Intelligence
+🗺️ Location-Based Data Collection
+💼 Competitive Analysis
+🎓 Academic Research
+
+🔥 NEW in v1.1.0:
+⚡ 40% speed improvement with aggressive delay optimization
+🎮 ESC Key Innovation - Smart keyboard events prevent navigation
+🔧 Enhanced data extraction with 15+ fields per business
+✨ Terminal UI with CRT scanline effects
+
+🚀 GET STARTED NOW:
+1️⃣ Download: https://github.com/prasangapokharel/NinjaScrapi
+2️⃣ Install in Chrome (Developer Mode)
+3️⃣ Search Google Maps → Click NinjaScrapi → Export CSV
+4️⃣ Done! 🎉
+
+⭐ Star us on GitHub: https://github.com/prasangapokharel/NinjaScrapi
+
+#NinjaScrapi #GoogleMaps #WebScraping #DataCollection #ChromeExtension #Automation #OpenSource #GitHub
+
+📢 Share this with your data squad! 🥷
