@@ -222,11 +222,23 @@ const extractDetailedInfo = async () => {
       business.longitude = coordinates[2];
     }
     
-    // ⚡ OPTIMIZED: Faster close operation
+    // ⚡ IMPROVED: Better close button detection and click
     const closeButton = document.querySelector('button[aria-label*="Back"]') ||
-                       document.querySelector('button[aria-label*="Close"]');
+                       document.querySelector('button[aria-label*="Close"]') ||
+                       document.querySelector('button.VfPpkd-icon-LgbsSe[aria-label]') ||
+                       Array.from(document.querySelectorAll('button[aria-label]')).find(btn => {
+                         const label = btn.getAttribute('aria-label') || '';
+                         return label.toLowerCase().includes('back') || 
+                                label.includes('फर्क') ||
+                                label.toLowerCase().includes('close');
+                       });
+    
     if (closeButton) {
-      await clickAndWait(closeButton, 600); // Reduced from 1000ms
+      console.log('🔙 Closing detail panel...');
+      closeButton.click();
+      await delay(800); // Wait for panel to close
+    } else {
+      console.warn('⚠️ Close button not found, may affect next scraping');
     }
     
     console.log('✅ Scraped:', business.name);
@@ -325,25 +337,39 @@ const extractBusinessesSequential = async (maxResults) => {
   for (let i = 0; i < limit; i++) {
     try {
       const cards = getBusinessCards();
-      if (!cards[i]) break;
+      if (!cards[i]) {
+        console.log('❌ No more cards found at index', i);
+        break;
+      }
       
       const businessName = cards[i].getAttribute('aria-label') || `Business ${i + 1}`;
       sendProgress(i + 1, limit, businessName);
       
       console.log(`📍 [${i + 1}/${limit}] Scraping: ${businessName}`);
       
-      await clickAndWait(cards[i], 2000);
+      // Scroll card into view before clicking
+      cards[i].scrollIntoView({ behavior: 'smooth', block: 'center' });
+      await delay(300);
+      
+      // Click the business card
+      await clickAndWait(cards[i], 2500);
+      
+      // Extract the data
       const businessData = await extractDetailedInfo();
       
       if (businessData && businessData.name) {
         businesses.push(businessData);
         console.log(`✅ [${i + 1}/${limit}] Done: ${businessData.name}`);
+      } else {
+        console.warn(`⚠️ Skipped business ${i + 1} - no valid data`);
       }
       
-      await delay(600); // Reduced from 800ms
+      // Delay before next iteration
+      await delay(600);
       
     } catch (error) {
       console.error(`❌ Error on business ${i + 1}:`, error);
+      sendStatus(`Error on business ${i + 1}, continuing...`);
     }
   }
   
