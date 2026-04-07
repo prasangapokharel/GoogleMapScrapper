@@ -1,12 +1,13 @@
 {
   "manifest_version": 3,
-  "name": "Google Maps Business Scraper",
-  "version": "1.0.0",
-  "description": "Scrape and export Google Maps business listings to CSV",
+  "name": "Google Maps Scraper Pro v1.1",
+  "version": "1.1.0",
+  "description": "⚡ ULTRA OPTIMIZED: Scrape Google Maps with terminal-style UI, parallel processing, and 15+ data fields",
   "permissions": [
     "scripting",
     "activeTab",
-    "tabs"
+    "tabs",
+    "storage"
   ],
   "host_permissions": [
     "https://www.google.com/maps/*",
@@ -17,7 +18,7 @@
   },
   "action": {
     "default_popup": "popup.html",
-    "default_title": "Google Maps Business Scraper"
+    "default_title": "Maps Scraper Pro v1.1 - TERMINAL MODE"
   },
   "content_scripts": [
     {
